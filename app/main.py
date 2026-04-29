@@ -26,6 +26,20 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from fastapi import Depends
 
+from sqlalchemy import func, or_
+from fastapi import HTTPException
+
+from .models import Cliente
+from .schemas.cliente import ClienteCreate, ClienteResponse
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from .models import Venta
+
+from .models import Configuracion
+from .schemas.configuracion import (
+    ConfiguracionResponse,
+    ConfiguracionUpdate )
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -128,17 +142,36 @@ def web():
     
 @app.post("/ventas")
 def crear_venta(venta: VentaCreate, db: Session = Depends(get_db)):
+    # 1️⃣ Validar cliente
+    cliente = db.query(Cliente).filter(
+        Cliente.id == venta.cliente_id,
+        Cliente.activo == True
+    ).first()
+
+    if not cliente:
+        raise HTTPException(status_code=400, detail="Cliente inválido o inactivo")
+
     total = 0
     detalles_db = []
-# 1️⃣ Validar stock y calcular total
+
+    # 2️⃣ Validar productos y stock
     for item in venta.detalles:
-        producto = db.query(Producto).filter(Producto.id == item.producto_id).first()
+        producto = db.query(Producto).filter(
+            Producto.id == item.producto_id,
+            Producto.activo == True
+        ).first()
 
         if not producto:
-            raise ValueError(f"Producto {item.producto_id} no existe")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Producto {item.producto_id} inválido o inactivo"
+            )
 
-        if producto.stock < item.cantidad:
-            raise ValueError(f"Stock insuficiente para {producto.nombre}")
+        if item.cantidad > producto.stock:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Stock insuficiente para {producto.nombre}. Disponible: {producto.stock}"
+            )
 
         subtotal = producto.precio_venta * item.cantidad
         total += subtotal
@@ -151,27 +184,36 @@ def crear_venta(venta: VentaCreate, db: Session = Depends(get_db)):
             )
         )
 
-    # 2️⃣ Crear venta
-    nueva_venta = Venta(total=total)
+    # 3️⃣ Crear venta
+    nueva_venta = Venta(
+        cliente_id=cliente.id,
+        total=total
+    )
+
     db.add(nueva_venta)
     db.commit()
     db.refresh(nueva_venta)
 
-    # 3️⃣ Guardar detalles y descontar stock
+    # 4️⃣ Guardar detalles + descontar stock
     for detalle in detalles_db:
         detalle.venta_id = nueva_venta.id
-        producto = db.query(Producto).filter(Producto.id == detalle.producto_id).first()
+
+        producto = db.query(Producto).filter(
+            Producto.id == detalle.producto_id
+        ).first()
+
         producto.stock -= detalle.cantidad
+
         db.add(detalle)
 
     db.commit()
 
     return {
-        "mensaje": "Venta registrada",
         "venta_id": nueva_venta.id,
+        "cliente": cliente.nombre_razon_social,
         "total": total
-    }
-    
+    } 
+       
 @app.get("/ventas-web", response_class=HTMLResponse)    
 def ventas_web():
     with open("app/static/ventas.html", encoding="utf-8") as f:
@@ -334,3 +376,128 @@ def buscar_productos(q: str, db: Session = Depends(get_db)):
         }
         for p in productos
     ]
+    
+@app.post("/clientes", response_model=ClienteResponse)
+def crear_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
+
+    # Validaciones por tipo
+    if cliente.tipo_cliente == "EMPRESA":
+        if not cliente.codigo_fiscal:
+            raise HTTPException(status_code=400, detail="Código fiscal obligatorio para Empresa")
+        prefijo = "200"
+
+    elif cliente.tipo_cliente == "PERSONA":
+        prefijo = "300"
+
+    else:
+        raise HTTPException(status_code=400, detail="Tipo de cliente inválido")
+
+    # Obtener último código del tipo
+    ultimo_codigo = (
+        db.query(func.max(Cliente.codigo_cliente))
+        .filter(Cliente.codigo_cliente.like(f"{prefijo}%"))
+        .scalar()
+    )
+
+    if ultimo_codigo:
+        secuencia = int(ultimo_codigo[-3:]) + 1
+    else:
+        secuencia = 1
+
+    if secuencia > 999:
+        raise HTTPException(status_code=400, detail="Límite de clientes alcanzado")
+
+    codigo_cliente = f"{prefijo}{secuencia:03d}"
+
+    nuevo = Cliente(
+        codigo_cliente=codigo_cliente,
+        tipo_cliente=cliente.tipo_cliente,
+        nombre_razon_social=cliente.nombre_razon_social,
+        telefono=cliente.telefono,
+        calle=cliente.calle,
+        numero=cliente.numero,
+        localidad=cliente.localidad,
+        codigo_postal=cliente.codigo_postal,
+        codigo_fiscal=cliente.codigo_fiscal,
+        dni=cliente.dni,
+        activo=True
+    )
+
+    db.add(nuevo)
+    db.commit()
+    db.refresh(nuevo)
+
+    return nuevo
+
+@app.get("/clientes/buscar", response_model=list[ClienteResponse])
+def buscar_clientes(q: str, db: Session = Depends(get_db)):
+    q = q.strip()
+    if len(q) < 2:
+        return []
+
+    return (
+        db.query(Cliente)
+        .filter(
+            Cliente.activo == True,
+            or_(
+                Cliente.codigo_cliente.ilike(f"%{q}%"),
+                Cliente.nombre_razon_social.ilike(f"%{q}%")
+            )
+        )
+        .limit(10)
+        .all()
+    )
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/clientes-web", response_class=HTMLResponse)
+def clientes_web():
+    with open("app/static/clientes.html", encoding="utf-8") as f:
+        return f.read()
+    
+@app.get("/clientes", response_model=list[ClienteResponse])
+def listar_clientes(db: Session = Depends(get_db)):
+    return (
+        db.query(Cliente)
+        .filter(Cliente.activo == True)
+        .order_by(Cliente.codigo_cliente)
+        .all()
+    )    
+    
+@app.get("/api/configuracion", response_model=ConfiguracionResponse)
+def obtener_configuracion(db: Session = Depends(get_db)):
+
+    config = db.query(Configuracion).first()
+
+    if not config:
+        config = Configuracion(
+            max_precio_producto=9999.99,
+            max_stock_producto=10000
+        )
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+
+    return config
+
+
+@app.put("/api/configuracion", response_model=ConfiguracionResponse)
+def actualizar_configuracion(
+    data: ConfiguracionUpdate,
+    db: Session = Depends(get_db)):
+    
+    config = db.query(Configuracion).first()
+
+    if not config:
+        raise HTTPException(
+            status_code=404,
+            detail="Configuración no encontrada"
+        )
+
+    config.max_precio_producto = data.max_precio_producto
+    config.max_stock_producto = data.max_stock_producto
+
+    db.commit()
+    db.refresh(config)
+
+    return config

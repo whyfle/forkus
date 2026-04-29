@@ -366,11 +366,42 @@ async function confirmarVenta() {
         alert("Debe seleccionar un cliente");
         return;
     }
+
     if (!detalles.length) {
         alert("No hay productos");
         return;
     }
-    alert("Venta lista para persistir (Commit 4)");
+
+    const payload = {
+        cliente_id: clienteActual.id,
+        detalles: detalles.map(d => ({
+            producto_id: d.producto_id,
+            cantidad: d.cantidad
+        }))
+    };
+
+    const res = await fetch(ventasUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || "Error al registrar la venta");
+        return;
+    }
+
+    const data = await res.json();
+
+    alert(`Venta registrada correctamente\nTotal: $${data.total}`);
+
+    // Reset de la venta
+    detalles = [];
+    clienteActual = null;
+    cliente_codigo.value = "";
+    cliente_nombre.value = "";
+    render();
 }
 
 /* =========================
