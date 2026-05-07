@@ -31,6 +31,8 @@ class Venta(Base):
     id = Column(Integer, primary_key=True, index=True)
     fecha = Column(DateTime, default=datetime.utcnow)
     total = Column(Float, nullable=False)
+    cliente_id = Column(Integer, ForeignKey("clientes.id"), nullable=False)
+    cliente = relationship("Cliente")
 
     detalles = relationship("DetalleVenta", back_populates="venta")    
 
@@ -57,6 +59,23 @@ class Categoria(Base):
     productos = relationship("Producto", back_populates="categoria")
 
 
+class Cliente(Base):
+    __tablename__ = "clientes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_cliente = Column(String, unique=True, nullable=False, index=True)
+    tipo_cliente = Column(String, nullable=False)
+    nombre_razon_social = Column(String, nullable=False)
+    telefono = Column(String, nullable=True)
+    calle = Column(String, nullable=True)
+    numero = Column(String, nullable=True)
+    localidad = Column(String, nullable=True)
+    codigo_postal = Column(String, nullable=True)
+    codigo_fiscal = Column(String, nullable=True)
+    dni = Column(String, nullable=True)
+    activo = Column(Boolean, default=True)
+
+
 class MovimientoStock(Base):
     __tablename__ = "movimientos_stock"
 
@@ -77,3 +96,4 @@ class Configuracion(Base):
     max_precio_producto = Column(Float, default=9999.99)
     max_stock_producto = Column(Integer, default=10000)
     idioma = Column(String, default="es")
+    tema = Column(String, default="light")

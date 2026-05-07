@@ -8,11 +8,140 @@
 body {
     font-family: Arial, sans-serif;
     margin: 30px;
+    background: #ffffff;
+    color: #000000;
 }
 
-input {
+input,
+select,
+button,
+textarea {
     padding: 6px;
     font-size: 14px;
+    color: #000;
+    background: #fff;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+button {
+    cursor: pointer;
+    background: #2f78f6;
+    color: #fff;
+    border: 1px solid #2560c8;
+}
+button:hover {
+    background: #3a8dff;
+}
+
+/* Dark theme */
+body.dark {
+    background-color: #121212;
+    color: #ffffff;
+}
+body.dark input,
+body.dark select,
+body.dark button,
+body.dark textarea {
+    background-color: #1f1f1f;
+    color: #ffffff;
+    border: 1px solid #555;
+}
+body.dark button {
+    background: #3a3a3a;
+    color: #fff;
+    border: 1px solid #777;
+}
+body.dark button:hover {
+    background: #4d4d4d;
+}
+body.dark .cliente-box {
+    border-color: #555;
+}
+body.dark table,
+body.dark th,
+body.dark td {
+    border-color: #555;
+}
+body.dark th {
+    background-color: #272727;
+}
+body.dark tfoot td {
+    background: #1f1f1f;
+}
+body.dark h1,
+body.dark h2,
+body.dark label,
+body.dark p,
+body.dark span,
+body.dark td,
+body.dark th {
+    color: #fff;
+}
+body.dark a {
+    color: #4da6ff;
+}
+body.dark a:hover {
+    color: #6bb9ff;
+}
+body.dark .modal-content {
+    background: #1f1f1f;
+    color: #fff;
+}
+body.dark .modal-content input,
+body.dark .modal-content select,
+body.dark .modal-content button,
+body.dark .modal-content textarea {
+    background: #2b2b2b;
+    color: #fff;
+    border: 1px solid #555;
+}
+body.dark .modal-content button {
+    background: #333;
+}
+body.dark .modal-content button:hover {
+    background: #444;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    z-index: 9999;
+}
+
+.modal-content {
+    background: #fff;
+    width: 90%;
+    max-width: 600px;
+    margin: 50px auto;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.form-row label {
+    width: 150px;
+}
+
+/* util */
+.hidden { display: none; }
+
+/* quitar flechas number */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+    text-align: right;
 }
 
 /* =========================
@@ -349,11 +478,23 @@ function render() {
             <td>${d.nombre}</td>
             <td class="num">$${d.precio.toFixed(2)}</td>
             <td class="num">
-              <input type="number" min="1" value="${d.cantidad}">
+              <input type="number" min="1" value="${d.cantidad}" data-index="${i}">
             </td>
             <td class="num">$${sub.toFixed(2)}</td>
         `;
         detalle.appendChild(tr);
+    });
+
+    // Add event listeners to quantity inputs
+    document.querySelectorAll('input[type="number"][data-index]').forEach(input => {
+        input.addEventListener('input', function() {
+            const index = parseInt(this.getAttribute('data-index'));
+            const newCantidad = parseInt(this.value) || 1;
+            if (newCantidad > 0) {
+                detalles[index].cantidad = newCantidad;
+                render(); // Re-render to update totals
+            }
+        });
     });
 
     totalSpan.textContent = total.toFixed(2);

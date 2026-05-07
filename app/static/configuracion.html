@@ -7,6 +7,29 @@
         body { font-family: Arial; margin: 30px; }
         input, button { padding: 6px; margin: 5px; }
         ul { margin-top: 15px; }
+
+        /* Dark theme */
+        body.dark {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        body.dark input, body.dark button, body.dark select {
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+        }
+        body.dark ul {
+            color: #fff;
+        }
+        body.dark h1, body.dark h2, body.dark label {
+            color: #fff;
+        }
+        body.dark a {
+            color: #4da6ff;
+        }
+        body.dark a:hover {
+            color: #6bb9ff;
+        }
     </style>
 </head>
 <body>
@@ -23,14 +46,68 @@
     </select>
 </div>
 
+<div class="form-row">
+    <label data-i18n="settings.themeLabel">Tema</label>
+    <select id="tema">
+        <option value="light" data-i18n="settings.themeOptionLight">Claro</option>
+        <option value="dark" data-i18n="settings.themeOptionDark">Oscuro</option>
+    </select>
+</div>
+
 <input type="text" id="nombreCategoria" placeholder="Nueva categoría" data-i18n-placeholder="settings.newCategoryPlaceholder">
 <button onclick="crearCategoria()" data-i18n="settings.addCategoryButton">Agregar</button>
 
 <ul id="listaCategorias"></ul>
 
+<h2 data-i18n="settings.productsHeading">Productos</h2>
+<ul id="listaProductos"></ul>
+
 <script src="/static/lang.js"></script>
 <script>
 const apiUrl = "http://127.0.0.1:8000/categorias";
+const productosUrl = "http://127.0.0.1:8000/productos-admin";
+
+async function cargarProductos() {
+    const res = await fetch(productosUrl);
+    const productos = await res.json();
+
+    const ul = document.getElementById("listaProductos");
+    ul.innerHTML = "";
+
+    productos.forEach(p => {
+        const li = document.createElement("li");
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+        li.style.alignItems = "center";
+        
+        const span = document.createElement("span");
+        span.textContent = `${p.nombre} (${p.categoria?.nombre || 'Sin categoría'}) - Stock: ${p.stock}`;
+        
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.style.marginLeft = "10px";
+        deleteBtn.onclick = () => eliminarProducto(p.id);
+        
+        li.appendChild(span);
+        li.appendChild(deleteBtn);
+        ul.appendChild(li);
+    });
+}
+
+async function eliminarProducto(id) {
+    if (!confirm(translate("settings.confirmDeleteProduct"))) return;
+    
+    const res = await fetch(`http://127.0.0.1:8000/productos/${id}`, {
+        method: "DELETE"
+    });
+    
+    if (res.ok) {
+        cargarProductos();
+    } else {
+        const error = await res.json();
+        alert(error.detail || "Error al eliminar producto");
+    }
+}
 
 async function cargarCategorias() {
     const res = await fetch(apiUrl);
@@ -41,39 +118,87 @@ async function cargarCategorias() {
 
     categorias.forEach(c => {
         const li = document.createElement("li");
-        li.textContent = c.nombre;
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+        li.style.alignItems = "center";
+        
+        const span = document.createElement("span");
+        span.textContent = c.nombre;
+        
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.style.marginLeft = "10px";
+        deleteBtn.onclick = () => eliminarCategoria(c.id);
+        
+        li.appendChild(span);
+        li.appendChild(deleteBtn);
         ul.appendChild(li);
     });
 }
 
+async function eliminarCategoria(id) {
+    if (!confirm(translate("settings.confirmDeleteCategory"))) return;
+    
+    const res = await fetch(`${apiUrl}/${id}`, {
+        method: "DELETE"
+    });
+    
+    if (res.ok) {
+        cargarCategorias();
+    } else {
+        const error = await res.json();
+        alert(error.detail || "Error al eliminar categoría");
+    }
+}
+
 async function crearCategoria() {
     const nombre = document.getElementById("nombreCategoria").value;
-    if (!nombre) return;
+    if (!nombre.trim()) {
+        alert(translate("settings.categoryInvalid"));
+        return;
+    }
 
-    await fetch(apiUrl, {
+    const res = await fetch(apiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre })
+        body: JSON.stringify({ nombre: nombre.trim() })
     });
 
-    document.getElementById("nombreCategoria").value = "";
-    cargarCategorias();
+    if (res.ok) {
+        document.getElementById("nombreCategoria").value = "";
+        cargarCategorias();
+    } else {
+        const error = await res.json();
+        alert(error.detail || "Error al crear categoría");
+    }
 }
 
 async function cargarConfiguracion() {
     const res = await fetch("/api/configuracion");
     const config = await res.json();
     document.getElementById("idioma").value = config.idioma || "es";
+    document.getElementById("tema").value = config.tema || "light";
+    aplicarTema(config.tema || "light");
+}
+
+function aplicarTema(tema) {
+    if (tema === "dark") {
+        document.body.classList.add("dark");
+    } else {
+        document.body.classList.remove("dark");
+    }
 }
 
 idioma.addEventListener("change", async () => {
+    const temaActual = document.getElementById("tema").value;
     const res = await fetch("/api/configuracion", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             max_precio_producto: 9999.99,
             max_stock_producto: 10000,
-            idioma: document.getElementById("idioma").value
+            idioma: document.getElementById("idioma").value,
+            tema: temaActual
         })
     });
     if (res.ok) {
@@ -81,7 +206,24 @@ idioma.addEventListener("change", async () => {
     }
 });
 
+tema.addEventListener("change", async () => {
+    const temaSeleccionado = document.getElementById("tema").value;
+    aplicarTema(temaSeleccionado);
+    
+    const res = await fetch("/api/configuracion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            max_precio_producto: 9999.99,
+            max_stock_producto: 10000,
+            idioma: document.getElementById("idioma").value,
+            tema: temaSeleccionado
+        })
+    });
+});
+
 cargarCategorias();
+cargarProductos();
 cargarConfiguracion();
 </script>
 

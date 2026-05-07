@@ -7,6 +7,12 @@ const appTranslations = {
         "settings.languageLabel": "Idioma",
         "settings.languageOptionEs": "Español",
         "settings.languageOptionEn": "Inglés",
+        "settings.themeLabel": "Tema",
+        "settings.themeOptionLight": "Claro",
+        "settings.themeOptionDark": "Oscuro",
+        "settings.productsHeading": "Productos",
+        "settings.confirmDeleteCategory": "¿Eliminar esta categoría?",
+        "settings.confirmDeleteProduct": "¿Eliminar este producto?",
         "settings.categoryInvalid": "Categoría inválida",
         "home.title": "Sistema de Stock y Ventas",
         "home.productsCardTitle": "Productos",
@@ -89,6 +95,12 @@ const appTranslations = {
         "settings.languageLabel": "Language",
         "settings.languageOptionEs": "Spanish",
         "settings.languageOptionEn": "English",
+        "settings.themeLabel": "Theme",
+        "settings.themeOptionLight": "Light",
+        "settings.themeOptionDark": "Dark",
+        "settings.productsHeading": "Products",
+        "settings.confirmDeleteCategory": "Delete this category?",
+        "settings.confirmDeleteProduct": "Delete this product?",
         "settings.categoryInvalid": "Invalid category",
         "home.title": "Stock and Sales System",
         "home.productsCardTitle": "Products",
@@ -194,15 +206,29 @@ async function loadLanguageConfig() {
         if (!response.ok) return;
         const config = await response.json();
         const lang = config.idioma ?? "es";
+        const tema = config.tema ?? "light";
         window.appLanguage = lang;
         document.documentElement.lang = lang;
         applyTranslations();
+        applyTheme(tema);
         const selector = document.getElementById("idioma");
         if (selector) {
             selector.value = lang;
         }
+        const temaSelector = document.getElementById("tema");
+        if (temaSelector) {
+            temaSelector.value = tema;
+        }
     } catch (error) {
         console.error("Error loading language config:", error);
+    }
+}
+
+function applyTheme(tema) {
+    if (tema === "dark") {
+        document.body.classList.add("dark");
+    } else {
+        document.body.classList.remove("dark");
     }
 }
 

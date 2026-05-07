@@ -9,6 +9,7 @@ class DetalleVentaCreate(BaseModel):
 
 
 class VentaCreate(BaseModel):
+    cliente_id: int
     detalles: List[DetalleVentaCreate]
     
 class DetalleVentaResponse(BaseModel):

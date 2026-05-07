@@ -40,10 +40,21 @@ from .schemas.configuracion import (
     ConfiguracionResponse,
     ConfiguracionUpdate )
 
+from fastapi.middleware.cors import CORSMiddleware
+
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sistema de Stock y Ventas")
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins for development
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -253,6 +264,33 @@ def crear_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
 @app.get("/categorias", response_model=list[CategoriaResponse])
 def listar_categorias(db: Session = Depends(get_db)):
     return db.query(Categoria).filter(Categoria.activa == True).all()
+
+@app.delete("/categorias/{categoria_id}")
+def eliminar_categoria(categoria_id: int, db: Session = Depends(get_db)):
+    categoria = db.query(Categoria).filter(
+        Categoria.id == categoria_id,
+        Categoria.activa == True
+    ).first()
+
+    if not categoria:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+
+    # Check if category has products
+    productos_count = db.query(Producto).filter(
+        Producto.categoria_id == categoria_id,
+        Producto.activo == True
+    ).count()
+
+    if productos_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="No se puede eliminar la categoría porque tiene productos asociados"
+        )
+
+    categoria.activa = False
+    db.commit()
+
+    return {"mensaje": "Categoría eliminada"}
 
 @app.get("/configuracion", response_class=HTMLResponse)
 def configuracion():
@@ -498,6 +536,7 @@ def actualizar_configuracion(
     config.max_precio_producto = data.max_precio_producto
     config.max_stock_producto = data.max_stock_producto
     config.idioma = data.idioma
+    config.tema = data.tema
 
     db.commit()
     db.refresh(config)
