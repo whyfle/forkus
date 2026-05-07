@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Ventas</title>
+<title data-i18n="sales.title">Ventas</title>
 
 <style>
 body {
@@ -121,7 +121,7 @@ input[type=number] {
 
 <body>
 
-<h1>Nueva Venta</h1>
+<h1 data-i18n="sales.title">Nueva Venta</h1>
 
 <!-- =========================
      CLIENTE
@@ -129,15 +129,15 @@ input[type=number] {
 <div class="cliente-box">
 
 <div class="row">
-    <label>Código Cliente</label>
+    <label data-i18n="sales.clientCode">Código Cliente</label>
     <input id="cliente_codigo" list="clientes" autocomplete="off">
     <datalist id="clientes"></datalist>
 
-    <button onclick="abrirModalCliente()">Crear Cliente</button>
+    <button onclick="abrirModalCliente()" data-i18n="sales.clientButton">Crear Cliente</button>
 </div>
 
 <div class="row">
-    <label>Cliente</label>
+    <label data-i18n="sales.clientName">Cliente</label>
     <input id="cliente_nombre" readonly>
 </div>
 
@@ -150,6 +150,7 @@ input[type=number] {
     id="producto"
     list="productos"
     placeholder="Buscar producto por nombre o código"
+    data-i18n-placeholder="sales.productPlaceholder"
     autocomplete="off"
 />
 <datalist id="productos"></datalist>
@@ -157,11 +158,11 @@ input[type=number] {
 <table>
 <thead>
 <tr>
-    <th>Código</th>
-    <th>Producto</th>
-    <th class="num">Precio</th>
-    <th class="num">Cantidad</th>
-    <th class="num">Subtotal</th>
+    <th data-i18n="sales.tableCode">Código</th>
+    <th data-i18n="sales.tableProduct">Producto</th>
+    <th class="num" data-i18n="sales.tablePrice">Precio</th>
+    <th class="num" data-i18n="sales.tableQuantity">Cantidad</th>
+    <th class="num" data-i18n="sales.tableSubtotal">Subtotal</th>
 </tr>
 </thead>
 
@@ -175,7 +176,7 @@ input[type=number] {
 </tfoot>
 </table>
 
-<button onclick="confirmarVenta()">Confirmar venta</button>
+<button onclick="confirmarVenta()" data-i18n="sales.confirmButton">Confirmar venta</button>
 
 <!-- =========================
      MODAL CLIENTE
@@ -183,64 +184,65 @@ input[type=number] {
 <div class="modal" id="modalCliente">
 <div class="modal-content">
 
-<h2>Alta de Cliente</h2>
+<h2 data-i18n="sales.modalTitle">Alta de Cliente</h2>
 
 <div class="form-row">
-    <label>Tipo</label>
+    <label data-i18n="sales.modalType">Tipo</label>
     <div>
-        <input type="radio" name="tipo" value="EMPRESA" checked onchange="cambiarTipo()"> Empresa
-        <input type="radio" name="tipo" value="PERSONA" onchange="cambiarTipo()"> Persona
+        <input type="radio" name="tipo" value="EMPRESA" checked onchange="cambiarTipo()"> <span data-i18n="sales.modalEmpresa">Empresa</span>
+        <input type="radio" name="tipo" value="PERSONA" onchange="cambiarTipo()"> <span data-i18n="sales.modalPersona">Persona</span>
     </div>
 </div>
 
 <div class="form-row empresa">
-    <label>Código Fiscal *</label>
+    <label data-i18n="sales.modalFiscalCode">Código Fiscal *</label>
     <input id="codigo_fiscal">
 </div>
 
 <div class="form-row persona hidden">
-    <label>DNI</label>
+    <label data-i18n="sales.modalDNI">DNI</label>
     <input id="dni">
 </div>
 
 <div class="form-row">
-    <label>Nombre / Razón Social *</label>
+    <label data-i18n="sales.modalName">Nombre / Razón Social *</label>
     <input id="nombre_razon">
 </div>
 
 <div class="form-row">
-    <label>Teléfono</label>
+    <label data-i18n="sales.modalPhone">Teléfono</label>
     <input id="telefono">
 </div>
 
 <div class="form-row">
-    <label>Calle</label>
+    <label data-i18n="sales.modalStreet">Calle</label>
     <input id="calle">
 </div>
 
 <div class="form-row">
-    <label>Número</label>
+    <label data-i18n="sales.modalNumber">Número</label>
     <input id="numero">
 </div>
 
 <div class="form-row">
-    <label>Localidad</label>
+    <label data-i18n="sales.modalLocale">Localidad</label>
     <input id="localidad">
 </div>
 
 <div class="form-row">
-    <label>CP</label>
+    <label data-i18n="sales.modalPostalCode">CP</label>
     <input id="codigo_postal">
 </div>
 
 <div class="form-row">
-    <button onclick="guardarCliente()">Guardar</button>
-    <button onclick="cerrarModalCliente()">Cancelar</button>
+    <button onclick="guardarCliente()" data-i18n="sales.modalSave">Guardar</button>
+    <button onclick="cerrarModalCliente()" data-i18n="sales.modalCancel">Cancelar</button>
 </div>
 
 </div>
 </div>
 
+<script src="/static/lang.js"></script>
 <script>
 const buscarClientesUrl = "http://127.0.0.1:8000/clientes/buscar";
 const crearClienteUrl = "http://127.0.0.1:8000/clientes";
@@ -363,12 +365,12 @@ function render() {
 
 async function confirmarVenta() {
     if (!clienteActual) {
-        alert("Debe seleccionar un cliente");
+        alert(translate("sales.selectClientRequired"));
         return;
     }
 
     if (!detalles.length) {
-        alert("No hay productos");
+        alert(translate("sales.noProducts"));
         return;
     }
 
@@ -388,13 +390,13 @@ async function confirmarVenta() {
 
     if (!res.ok) {
         const err = await res.json();
-        alert(err.detail || "Error al registrar la venta");
+        alert(err.detail || translate("sales.customerInvalid"));
         return;
     }
 
     const data = await res.json();
 
-    alert(`Venta registrada correctamente\nTotal: $${data.total}`);
+    alert(translate("sales.registered", { total: data.total }));
 
     // Reset de la venta
     detalles = [];

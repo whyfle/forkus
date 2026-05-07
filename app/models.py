@@ -68,3 +68,12 @@ class MovimientoStock(Base):
     fecha = Column(DateTime, default=datetime.utcnow)
 
     producto = relationship("Producto")
+
+
+class Configuracion(Base):
+    __tablename__ = "configuracion"
+
+    id = Column(Integer, primary_key=True, index=True)
+    max_precio_producto = Column(Float, default=9999.99)
+    max_stock_producto = Column(Integer, default=10000)
+    idioma = Column(String, default="es")

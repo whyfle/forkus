@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Ingreso de Stock</title>
+<title data-i18n="stock.title">Ingreso de Stock</title>
 <style>
 body { font-family: Arial; margin: 30px; }
 input, select, button { margin: 5px; padding: 6px; }
@@ -10,12 +10,12 @@ input, select, button { margin: 5px; padding: 6px; }
 </head>
 <body>
 
-<h1>Ingreso de Stock</h1>
+<h1 data-i18n="stock.title">Ingreso de Stock</h1>
 
 <select id="producto"></select>
-<input type="number" id="cantidad" placeholder="Cantidad" min="1">
-<input type="text" id="motivo" placeholder="Motivo (opcional)">
-<button onclick="ingresarStock()">Ingresar</button>
+<input type="number" id="cantidad" placeholder="Cantidad" min="1" data-i18n-placeholder="stock.quantityPlaceholder">
+<input type="text" id="motivo" placeholder="Motivo (opcional)" data-i18n-placeholder="stock.reasonPlaceholder">
+<button onclick="ingresarStock()" data-i18n="stock.button">Ingresar</button>
 
 <script>
 const productosUrl = "http://127.0.0.1:8000/productos-admin";
@@ -42,7 +42,7 @@ async function ingresarStock() {
     const motivo = document.getElementById("motivo").value;
 
     if (!cantidad || cantidad <= 0) {
-        alert("Cantidad inválida");
+        alert(translate("stock.invalidQuantity"));
         return;
     }
 
@@ -53,12 +53,12 @@ async function ingresarStock() {
     });
 
     const data = await res.json();
-    alert(`Stock actualizado. Nuevo stock: ${data.nuevo_stock}`);
+    alert(translate("stock.updatedMessage", { stock: data.nuevo_stock }));
     location.reload();
 }
 
 cargarProductos();
 </script>
-
+<script src="/static/lang.js"></script>
 </body>
 </html>

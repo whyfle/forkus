@@ -472,7 +472,8 @@ def obtener_configuracion(db: Session = Depends(get_db)):
     if not config:
         config = Configuracion(
             max_precio_producto=9999.99,
-            max_stock_producto=10000
+            max_stock_producto=10000,
+            idioma="es"
         )
         db.add(config)
         db.commit()
@@ -496,6 +497,7 @@ def actualizar_configuracion(
 
     config.max_precio_producto = data.max_precio_producto
     config.max_stock_producto = data.max_stock_producto
+    config.idioma = data.idioma
 
     db.commit()
     db.refresh(config)

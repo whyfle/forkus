@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Historial de Ventas</title>
+    <title data-i18n="history.title">Historial de Ventas</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -29,14 +29,14 @@
 </head>
 <body>
 
-<h1>Historial de Ventas</h1>
+<h1 data-i18n="history.title">Historial de Ventas</h1>
 
 <table>
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Fecha</th>
-            <th>Total</th>
+            <th data-i18n="history.id">ID</th>
+            <th data-i18n="history.date">Fecha</th>
+            <th data-i18n="history.total">Total</th>
             <th></th>
         </tr>
     </thead>
@@ -45,6 +45,7 @@
 
 <div id="detalleVenta"></div>
 
+<script src="/static/lang.js"></script>
 <script>
 async function cargarVentas() {
     const res = await fetch("http://127.0.0.1:8000/ventas");
@@ -59,7 +60,7 @@ async function cargarVentas() {
             <td>${v.id}</td>
             <td>${new Date(v.fecha).toLocaleString()}</td>
             <td>$${v.total.toFixed(2)}</td>
-            <td><button onclick='verDetalle(${JSON.stringify(v)})'>Ver</button></td>
+            <td><button onclick='verDetalle(${JSON.stringify(v)})'>${translate("history.view")}</button></td>
         `;
         tabla.appendChild(tr);
     });
@@ -67,18 +68,18 @@ async function cargarVentas() {
 
 function verDetalle(venta) {
     const div = document.getElementById("detalleVenta");
-    let html = `<h3>Detalle venta #${venta.id}</h3>`;
+    let html = `<h3>${translate("history.detailTitle", { id: venta.id })}</h3>`;
     html += `<div class="detalle"><ul>`;
 
     venta.detalles.forEach(d => {
         const subtotal = d.cantidad * d.precio_unitario;
-        html += `<li>
-            Producto ID: ${d.producto_id} |
-            ${d.producto.nombre} |
-            ${d.producto.categoria?.nombre || "Sin categoría"} |
-            Cant: ${d.cantidad} |
-            Subtotal: $${(d.cantidad * d.precio_unitario).toFixed(2)}
-        </li>`;
+        html += `<li>${translate("history.productLine", {
+            id: d.producto_id,
+            name: d.producto.nombre,
+            category: d.producto.categoria?.nombre || translate("history.noCategory"),
+            quantity: d.cantidad,
+            subtotal: (d.cantidad * d.precio_unitario).toFixed(2)
+        })}</li>`;
     });
 
     html += `</ul></div>`;
@@ -87,6 +88,5 @@ function verDetalle(venta) {
 
 cargarVentas();
 </script>
-
 </body>
 </html>

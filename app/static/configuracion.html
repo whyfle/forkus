@@ -11,15 +11,24 @@
 </head>
 <body>
 
-<h1>Configuración del Sistema</h1>
+<h1 data-i18n="settings.title">Configuración del Sistema</h1>
 
-<h2>Categorías de Productos</h2>
+<h2 data-i18n="settings.categoriesHeading">Categorías de Productos</h2>
 
-<input type="text" id="nombreCategoria" placeholder="Nueva categoría">
-<button onclick="crearCategoria()">Agregar</button>
+<div class="form-row">
+    <label data-i18n="settings.languageLabel">Idioma</label>
+    <select id="idioma">
+        <option value="es" data-i18n="settings.languageOptionEs">Español</option>
+        <option value="en" data-i18n="settings.languageOptionEn">Inglés</option>
+    </select>
+</div>
+
+<input type="text" id="nombreCategoria" placeholder="Nueva categoría" data-i18n-placeholder="settings.newCategoryPlaceholder">
+<button onclick="crearCategoria()" data-i18n="settings.addCategoryButton">Agregar</button>
 
 <ul id="listaCategorias"></ul>
 
+<script src="/static/lang.js"></script>
 <script>
 const apiUrl = "http://127.0.0.1:8000/categorias";
 
@@ -51,7 +60,29 @@ async function crearCategoria() {
     cargarCategorias();
 }
 
+async function cargarConfiguracion() {
+    const res = await fetch("/api/configuracion");
+    const config = await res.json();
+    document.getElementById("idioma").value = config.idioma || "es";
+}
+
+idioma.addEventListener("change", async () => {
+    const res = await fetch("/api/configuracion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            max_precio_producto: 9999.99,
+            max_stock_producto: 10000,
+            idioma: document.getElementById("idioma").value
+        })
+    });
+    if (res.ok) {
+        loadLanguageConfig();
+    }
+});
+
 cargarCategorias();
+cargarConfiguracion();
 </script>
 
 </body>

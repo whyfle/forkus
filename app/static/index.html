@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Productos</title>
+<title data-i18n="index.title">Productos</title>
 
 <style>
 body {
@@ -101,54 +101,54 @@ td.num, th.num {
 <body>
 
 <div class="ribbon">
-    <button onclick="volver()">⬅ Volver</button>
+    <button onclick="volver()" data-i18n="index.back">⬅ Volver</button>
 </div>
 
 <div class="container">
 
-<h1>Alta de Productos</h1>
+<h1 data-i18n="index.title">Alta de Productos</h1>
 
 <form id="productoForm">
 
 <div class="form-row">
-    <label>Categoría</label>
+    <label data-i18n="index.category">Categoría</label>
     <input list="categorias" id="categoria" required>
     <datalist id="categorias"></datalist>
 </div>
 
 <div class="form-row">
-    <label>Nombre</label>
+    <label data-i18n="index.name">Nombre</label>
     <input id="nombre" required>
 </div>
 
 <div class="form-row">
-    <label>Precio</label>
+    <label data-i18n="index.price">Precio</label>
     <input id="precio" type="number" step="0.01" required>
 </div>
 
 <div class="form-row">
-    <label>Stock inicial</label>
+    <label data-i18n="index.stock">Stock inicial</label>
     <input id="stock" type="number" min="0" required>
 </div>
 
 <div class="form-row">
-    <button type="submit" class="primary">Añadir</button>
+    <button type="submit" class="primary" data-i18n="index.addButton">Añadir</button>
 </div>
 
 </form>
 
-<h2>Productos</h2>
+<h2 data-i18n="index.productsHeading">Productos</h2>
 
 <table>
 <thead>
 <tr>
     <th class="num">ID</th>
-    <th>Nombre</th>
-    <th class="num">Precio</th>
-    <th class="num">Stock</th>
-    <th>Categoría</th>
-    <th>Estado</th>
-    <th>Acción</th>
+    <th data-i18n="index.name">Nombre</th>
+    <th class="num" data-i18n="index.price">Precio</th>
+    <th class="num" data-i18n="index.stock">Stock</th>
+    <th data-i18n="index.category">Categoría</th>
+    <th data-i18n="index.state">Estado</th>
+    <th data-i18n="index.action">Acción</th>
 </tr>
 </thead>
 <tbody id="productosTabla"></tbody>
@@ -156,6 +156,7 @@ td.num, th.num {
 
 </div>
 
+<script src="/static/lang.js"></script>
 <script>
 const productosUrl = "http://127.0.0.1:8000/productos";
 const productosAdminUrl = "http://127.0.0.1:8000/productos-admin";
@@ -195,10 +196,10 @@ async function cargarProductos() {
             <td class="num">$${p.precio_venta.toFixed(2)}</td>
             <td class="num">${p.stock}</td>
             <td>${p.categoria ? p.categoria.nombre : "-"}</td>
-            <td>${p.activo ? "Activo" : "Inactivo"}</td>
+            <td>${p.activo ? translate("index.active") : translate("index.inactive")}</td>
             <td>
                 <button onclick="toggle(${p.id}, ${p.activo})">
-                    ${p.activo ? "Desactivar" : "Activar"}
+                    ${p.activo ? translate("index.deactivate") : translate("index.activate")}
                 </button>
             </td>
         `;
@@ -215,7 +216,7 @@ document.getElementById("productoForm").addEventListener("submit", async e => {
     const catName = categoria.value;
     const catOpt = [...categorias.options].find(o => o.value === catName);
     if (!catOpt) {
-        alert("Categoría inválida");
+        alert(translate("settings.categoryInvalid"));
         return;
     }
 
