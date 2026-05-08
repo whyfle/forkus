@@ -21,7 +21,7 @@ from .models import MovimientoStock
 from .schemas.stock import IngresoStockCreate
 
 from .models import Usuario
-from .schemas.usuario import UsuarioCreate, UsuarioUpdate, Usuario, LoginRequest, Token
+from .schemas.usuario import UsuarioCreate, UsuarioUpdate, Usuario as UsuarioSchema, LoginRequest, Token
 
 from sqlalchemy import or_
 
@@ -245,12 +245,12 @@ def login_page():
     """
 
 
-@app.get("/users/me", response_model=Usuario)
+@app.get("/users/me", response_model=UsuarioSchema)
 def read_users_me(current_user: Usuario = Depends(get_current_active_user)):
     return current_user
 
 
-@app.post("/users", response_model=Usuario)
+@app.post("/users", response_model=UsuarioSchema)
 def create_user(user: UsuarioCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not enough permissions")
