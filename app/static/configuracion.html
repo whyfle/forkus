@@ -79,6 +79,8 @@
 const apiUrl = "http://127.0.0.1:8000/categorias";
 const productosUrl = "http://127.0.0.1:8000/productos-admin";
 const usuariosUrl = "http://127.0.0.1:8000/users";
+const idiomaSelector = document.getElementById("idioma");
+const temaSelector = document.getElementById("tema");
 
 async function cargarProductos() {
     const res = await fetch(productosUrl, {
@@ -210,38 +212,42 @@ function aplicarTema(tema) {
     }
 }
 
-idioma.addEventListener("change", async () => {
-    const temaActual = document.getElementById("tema").value;
-    const res = await fetch("/api/configuracion", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({
-            max_precio_producto: 9999.99,
-            max_stock_producto: 10000,
-            idioma: document.getElementById("idioma").value,
-            tema: temaActual
-        })
+if (idiomaSelector) {
+    idiomaSelector.addEventListener("change", async () => {
+        const temaActual = temaSelector?.value || "light";
+        const res = await fetch("/api/configuracion", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({
+                max_precio_producto: 9999.99,
+                max_stock_producto: 10000,
+                idioma: idiomaSelector.value,
+                tema: temaActual
+            })
+        });
+        if (res.ok) {
+            loadLanguageConfig();
+        }
     });
-    if (res.ok) {
-        loadLanguageConfig();
-    }
-});
+}
 
-tema.addEventListener("change", async () => {
-    const temaSeleccionado = document.getElementById("tema").value;
-    aplicarTema(temaSeleccionado);
-    
-    const res = await fetch("/api/configuracion", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({
-            max_precio_producto: 9999.99,
-            max_stock_producto: 10000,
-            idioma: document.getElementById("idioma").value,
-            tema: temaSeleccionado
-        })
+if (temaSelector) {
+    temaSelector.addEventListener("change", async () => {
+        const temaSeleccionado = temaSelector.value;
+        aplicarTema(temaSeleccionado);
+        
+        const res = await fetch("/api/configuracion", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+            body: JSON.stringify({
+                max_precio_producto: 9999.99,
+                max_stock_producto: 10000,
+                idioma: idiomaSelector?.value || "es",
+                tema: temaSeleccionado
+            })
+        });
     });
-});
+}
 
 async function cargarUsuarios() {
     const res = await fetch(usuariosUrl, {

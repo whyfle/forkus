@@ -20,6 +20,9 @@ from fastapi import HTTPException
 from .models import MovimientoStock
 from .schemas.stock import IngresoStockCreate
 
+from .models import Usuario
+from .schemas.usuario import UsuarioCreate, UsuarioUpdate, Usuario, LoginRequest, Token
+
 from sqlalchemy import or_
 
 from sqlalchemy.orm import Session
@@ -42,8 +45,6 @@ from .schemas.configuracion import (
 
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import Usuario
-from .schemas.usuario import UsuarioCreate, Usuario, LoginRequest, Token
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -57,6 +58,9 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["scrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+from .models import Usuario, Producto, Venta, DetalleVenta, Categoria, MovimientoStock, Cliente, Configuracion
+from .schemas.usuario import UsuarioCreate, Usuario, LoginRequest, Token
 
 Base.metadata.create_all(bind=engine)
 
@@ -102,11 +106,17 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def authenticate_user(db: Session, username: str, password: str):
+    print(f"Authenticating user: {username}")
+    print(f"Usuario class: {Usuario}")
     user = db.query(Usuario).filter(Usuario.username == username).first()
+    print(f"User found: {user is not None}")
     if not user:
+        print("User not found")
         return False
     if not verify_password(password, user.password_hash):
+        print("Password verification failed")
         return False
+    print("Authentication successful")
     return user
 
 
@@ -143,9 +153,12 @@ def startup_event():
         from .models import Usuario as UsuarioModel
         admin = db.query(UsuarioModel).filter(UsuarioModel.username == "admin").first()
         if not admin:
-            hashed_password = get_password_hash("admin")
+            hashed_password = get_password_hash("FORKUS")
             admin_user = UsuarioModel(username="admin", password_hash=hashed_password, role="admin")
             db.add(admin_user)
+            db.commit()
+        elif not verify_password("FORKUS", admin.password_hash):
+            admin.password_hash = get_password_hash("FORKUS")
             db.commit()
     finally:
         db.close()
@@ -159,6 +172,22 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.post("/login-json", response_model=Token)
+def login_json(credentials: LoginRequest, db: Session = Depends(get_db)):
+    print(f"Login attempt for user: {credentials.username}")
+    user = authenticate_user(db, credentials.username, credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

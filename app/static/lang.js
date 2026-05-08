@@ -202,7 +202,12 @@ function applyTranslations() {
 
 async function loadLanguageConfig() {
     try {
-        const response = await fetch("/api/configuracion");
+        const token = localStorage.getItem('token');
+        const headers = {};
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        const response = await fetch("/api/configuracion", { headers });
         if (!response.ok) return;
         const config = await response.json();
         const lang = config.idioma ?? "es";
