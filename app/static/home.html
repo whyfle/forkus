@@ -2,18 +2,70 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Forkus</title>
+    <title>Sistema de Stock</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 40px;
+            margin: 0;
+            background: #f4f5f8;
+            color: #111;
+        }
+        .main {
+            padding: 40px;
+        }
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            padding: 14px 40px;
+            background: #202124;
+            color: #ffffff;
+        }
+        .topbar .brand {
+            font-weight: bold;
+            font-size: 1rem;
+        }
+        .topbar nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .topbar a {
+            color: #e8eaed;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            transition: background .2s ease;
+        }
+        .topbar a:hover {
+            background: rgba(255,255,255,.08);
         }
         h1 {
+            margin-bottom: 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
             margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 14px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.05);
+        }
+        .stat-card strong {
+            display: block;
+            font-size: 2rem;
+            margin-bottom: 8px;
         }
         .menu {
             display: flex;
             gap: 20px;
+            flex-wrap: wrap;
         }
         a {
             text-decoration: none;
@@ -42,6 +94,14 @@
         body.dark .card:hover {
             background: #444;
         }
+        body.dark .stat-card {
+            background: #1f1f1f;
+            border-color: #444;
+        }
+        body.dark .stat-card strong,
+        body.dark .stat-card div {
+            color: #fff;
+        }
         body.dark h1, body.dark h2, body.dark label, body.dark p {
             color: #fff;
         }
@@ -55,7 +115,44 @@
 </head>
 <body>
 
-<h1 data-i18n="home.title">Forkus</h1>
+<header class="topbar">
+    <div class="brand" data-i18n="topbar.home">Stock System</div>
+    <nav>
+        <a href="/" data-i18n="topbar.home">Home</a>
+        <a href="/web" data-i18n="topbar.products">Products</a>
+        <a href="/ventas-web" data-i18n="topbar.sales">Sales</a>
+        <a href="/stock-web" data-i18n="topbar.stock">Stock</a>
+        <a href="/historial-web" data-i18n="topbar.history">History</a>
+        <a href="/configuracion" data-i18n="topbar.settings">Settings</a>
+    </nav>
+</header>
+
+<div class="main">
+
+<h1 data-i18n="home.title">Sistema de Stock y Ventas</h1>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <strong id="statProducts">0</strong>
+        <div data-i18n="home.statProducts">Productos activos</div>
+    </div>
+    <div class="stat-card">
+        <strong id="statCategories">0</strong>
+        <div data-i18n="home.statCategories">Categorías activas</div>
+    </div>
+    <div class="stat-card">
+        <strong id="statSales">0</strong>
+        <div data-i18n="home.statSales">Ventas totales</div>
+    </div>
+    <div class="stat-card">
+        <strong id="statStock">0</strong>
+        <div data-i18n="home.statStock">Stock total</div>
+    </div>
+    <div class="stat-card">
+        <strong id="statClients">0</strong>
+        <div data-i18n="home.statClients">Clientes activos</div>
+    </div>
+</div>
 
 <div class="menu">
     <a href="/web">
@@ -96,5 +193,30 @@
 </div>
 
 <script src="/static/lang.js"></script>
+<script>
+async function loadHomeStats() {
+    try {
+        const res = await fetch('/api/stats');
+        if (!res.ok) return;
+        const data = await res.json();
+        document.getElementById('statProducts').textContent = data.productos;
+        document.getElementById('statCategories').textContent = data.categorias;
+        document.getElementById('statSales').textContent = data.ventas;
+        document.getElementById('statStock').textContent = data.stock_total;
+        document.getElementById('statClients').textContent = data.clientes;
+    } catch (error) {
+        console.error('Error loading stats:', error);
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+    loadHomeStats();
+});
+</script>
+</div>
 </body>
 </html>

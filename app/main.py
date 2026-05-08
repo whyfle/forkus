@@ -42,6 +42,21 @@ from .schemas.configuracion import (
 
 from fastapi.middleware.cors import CORSMiddleware
 
+from .models import Usuario
+from .schemas.usuario import UsuarioCreate, Usuario, LoginRequest, Token
+from passlib.context import CryptContext
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, HTTPException, status
+from typing import Optional
+
+SECRET_KEY = "your-secret-key"  # Change this in production
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+pwd_context = CryptContext(schemes=["scrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 Base.metadata.create_all(bind=engine)
 
@@ -65,6 +80,165 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def authenticate_user(db: Session, username: str, password: str):
+    user = db.query(Usuario).filter(Usuario.username == username).first()
+    if not user:
+        return False
+    if not verify_password(password, user.password_hash):
+        return False
+    return user
+
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(Usuario).filter(Usuario.username == username).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+def get_current_active_user(current_user: Usuario = Depends(get_current_user)):
+    if not current_user.activo:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+
+# Initialize default admin user
+@app.on_event("startup")
+def startup_event():
+    db = SessionLocal()
+    try:
+        from .models import Usuario as UsuarioModel
+        admin = db.query(UsuarioModel).filter(UsuarioModel.username == "admin").first()
+        if not admin:
+            hashed_password = get_password_hash("admin")
+            admin_user = UsuarioModel(username="admin", password_hash=hashed_password, role="admin")
+            db.add(admin_user)
+            db.commit()
+    finally:
+        db.close()
+
+
+@app.post("/token", response_model=Token)
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
+    return """
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <title>Login</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; background: #f4f5f8; color: #111; display: flex; justify-content: center; align-items: center; height: 100vh; }
+            .login-form { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); width: 300px; }
+            input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+            button { width: 100%; padding: 10px; background: #2f78f6; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+            button:hover { background: #3a8dff; }
+        </style>
+    </head>
+    <body>
+        <div class="login-form">
+            <h2>Login</h2>
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+        <script>
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const response = await fetch('/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ username, password })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    localStorage.setItem('token', data.access_token);
+                    window.location.href = '/';
+                } else {
+                    alert('Invalid credentials');
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+
+
+@app.get("/users/me", response_model=Usuario)
+def read_users_me(current_user: Usuario = Depends(get_current_active_user)):
+    return current_user
+
+
+@app.post("/users", response_model=Usuario)
+def create_user(user: UsuarioCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    hashed_password = get_password_hash(user.password)
+    db_user = Usuario(username=user.username, password_hash=hashed_password, role=user.role, activo=user.activo)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+@app.get("/users", response_model=list[Usuario])
+def read_users(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    users = db.query(Usuario).offset(skip).limit(limit).all()
+    return users
 
 
 #@app.get("/")
@@ -94,7 +268,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 @app.post("/productos", response_model=ProductoResponse)
-def crear_producto(producto: ProductoCreate, db: Session = Depends(get_db)):
+def crear_producto(producto: ProductoCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     """
     Genera código de producto con formato:
     100001 .. 100999
@@ -138,7 +312,7 @@ def crear_producto(producto: ProductoCreate, db: Session = Depends(get_db)):
 
 
 @app.get("/productos", response_model=list[ProductoResponse])
-def listar_productos(db: Session = Depends(get_db)):
+def listar_productos(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     return (
         db.query(Producto)
         .options(joinedload(Producto.categoria))
@@ -152,7 +326,7 @@ def web():
         return f.read()
     
 @app.post("/ventas")
-def crear_venta(venta: VentaCreate, db: Session = Depends(get_db)):
+def crear_venta(venta: VentaCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     # 1️⃣ Validar cliente
     cliente = db.query(Cliente).filter(
         Cliente.id == venta.cliente_id,
@@ -231,7 +405,7 @@ def ventas_web():
         return f.read()
 
 @app.get("/ventas", response_model=list[VentaResponse])
-def listar_ventas(db: Session = Depends(get_db)):
+def listar_ventas(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     return (
         db.query(Venta)
         .options(
@@ -254,7 +428,7 @@ def home():
 
 
 @app.post("/categorias", response_model=CategoriaResponse)
-def crear_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
+def crear_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     nueva = Categoria(nombre=categoria.nombre)
     db.add(nueva)
     db.commit()
@@ -262,11 +436,11 @@ def crear_categoria(categoria: CategoriaCreate, db: Session = Depends(get_db)):
     return nueva
 
 @app.get("/categorias", response_model=list[CategoriaResponse])
-def listar_categorias(db: Session = Depends(get_db)):
+def listar_categorias(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     return db.query(Categoria).filter(Categoria.activa == True).all()
 
 @app.delete("/categorias/{categoria_id}")
-def eliminar_categoria(categoria_id: int, db: Session = Depends(get_db)):
+def eliminar_categoria(categoria_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     categoria = db.query(Categoria).filter(
         Categoria.id == categoria_id,
         Categoria.activa == True
@@ -298,7 +472,7 @@ def configuracion():
         return f.read()    
     
 @app.delete("/productos/{producto_id}")
-def eliminar_producto(producto_id: int, db: Session = Depends(get_db)):
+def eliminar_producto(producto_id: int, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     producto = db.query(Producto).filter(
         Producto.id == producto_id,
         Producto.activo == True
@@ -341,7 +515,7 @@ def activar_producto(producto_id: int, db: Session = Depends(get_db)):
     return {"mensaje": "Producto activado"}
 
 @app.get("/productos-admin", response_model=list[ProductoResponse])
-def listar_productos_admin(db: Session = Depends(get_db)):
+def listar_productos_admin(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     return (
         db.query(Producto)
         .options(joinedload(Producto.categoria))
@@ -349,7 +523,7 @@ def listar_productos_admin(db: Session = Depends(get_db)):
     )
     
 @app.post("/stock/ingreso")
-def ingresar_stock(data: IngresoStockCreate, db: Session = Depends(get_db)):
+def ingresar_stock(data: IngresoStockCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     producto = db.query(Producto).filter(
         Producto.id == data.producto_id,
         Producto.activo == True
@@ -386,7 +560,7 @@ def stock_web():
 
 
 @app.get("/productos/buscar")
-def buscar_productos(q: str, db: Session = Depends(get_db)):
+def buscar_productos(q: str, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     q = q.strip()
     if len(q) < 2:
         return []
@@ -416,7 +590,7 @@ def buscar_productos(q: str, db: Session = Depends(get_db)):
     ]
     
 @app.post("/clientes", response_model=ClienteResponse)
-def crear_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
+def crear_cliente(cliente: ClienteCreate, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
 
     # Validaciones por tipo
     if cliente.tipo_cliente == "EMPRESA":
@@ -468,7 +642,7 @@ def crear_cliente(cliente: ClienteCreate, db: Session = Depends(get_db)):
     return nuevo
 
 @app.get("/clientes/buscar", response_model=list[ClienteResponse])
-def buscar_clientes(q: str, db: Session = Depends(get_db)):
+def buscar_clientes(q: str, db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     q = q.strip()
     if len(q) < 2:
         return []
@@ -494,7 +668,7 @@ def clientes_web():
         return f.read()
     
 @app.get("/clientes", response_model=list[ClienteResponse])
-def listar_clientes(db: Session = Depends(get_db)):
+def listar_clientes(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
     return (
         db.query(Cliente)
         .filter(Cliente.activo == True)
@@ -503,7 +677,7 @@ def listar_clientes(db: Session = Depends(get_db)):
     )    
     
 @app.get("/api/configuracion", response_model=ConfiguracionResponse)
-def obtener_configuracion(db: Session = Depends(get_db)):
+def obtener_configuracion(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
 
     config = db.query(Configuracion).first()
 
@@ -523,7 +697,8 @@ def obtener_configuracion(db: Session = Depends(get_db)):
 @app.put("/api/configuracion", response_model=ConfiguracionResponse)
 def actualizar_configuracion(
     data: ConfiguracionUpdate,
-    db: Session = Depends(get_db)):
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)):
     
     config = db.query(Configuracion).first()
 
@@ -542,3 +717,20 @@ def actualizar_configuracion(
     db.refresh(config)
 
     return config
+
+
+@app.get("/api/stats")
+def obtener_stats(db: Session = Depends(get_db), current_user: Usuario = Depends(get_current_active_user)):
+    productos = db.query(func.count(Producto.id)).filter(Producto.activo == True).scalar()
+    categorias = db.query(func.count(Categoria.id)).filter(Categoria.activa == True).scalar()
+    ventas = db.query(func.count(Venta.id)).scalar()
+    stock_total = db.query(func.sum(Producto.stock)).scalar() or 0
+    clientes = db.query(func.count(Cliente.id)).filter(Cliente.activo == True).scalar()
+    
+    return {
+        "productos": productos,
+        "categorias": categorias,
+        "ventas": ventas,
+        "stock_total": stock_total,
+        "clientes": clientes
+    }

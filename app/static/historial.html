@@ -112,5 +112,13 @@ function verDetalle(venta) {
 
 cargarVentas();
 </script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+});
+</script>
 </body>
 </html>

@@ -62,13 +62,28 @@
 <h2 data-i18n="settings.productsHeading">Productos</h2>
 <ul id="listaProductos"></ul>
 
+<h2>Usuarios</h2>
+<div class="form-row">
+    <input type="text" id="username" placeholder="Nuevo usuario">
+    <input type="password" id="password" placeholder="Contraseña">
+    <select id="role">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+    </select>
+    <button onclick="crearUsuario()">Crear Usuario</button>
+</div>
+<ul id="listaUsuarios"></ul>
+
 <script src="/static/lang.js"></script>
 <script>
 const apiUrl = "http://127.0.0.1:8000/categorias";
 const productosUrl = "http://127.0.0.1:8000/productos-admin";
+const usuariosUrl = "http://127.0.0.1:8000/users";
 
 async function cargarProductos() {
-    const res = await fetch(productosUrl);
+    const res = await fetch(productosUrl, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
     const productos = await res.json();
 
     const ul = document.getElementById("listaProductos");
@@ -98,7 +113,8 @@ async function eliminarProducto(id) {
     if (!confirm(translate("settings.confirmDeleteProduct"))) return;
     
     const res = await fetch(`http://127.0.0.1:8000/productos/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
     
     if (res.ok) {
@@ -110,7 +126,9 @@ async function eliminarProducto(id) {
 }
 
 async function cargarCategorias() {
-    const res = await fetch(apiUrl);
+    const res = await fetch(apiUrl, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
     const categorias = await res.json();
 
     const ul = document.getElementById("listaCategorias");
@@ -140,7 +158,8 @@ async function eliminarCategoria(id) {
     if (!confirm(translate("settings.confirmDeleteCategory"))) return;
     
     const res = await fetch(`${apiUrl}/${id}`, {
-        method: "DELETE"
+        method: "DELETE",
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
     });
     
     if (res.ok) {
@@ -160,7 +179,7 @@ async function crearCategoria() {
 
     const res = await fetch(apiUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({ nombre: nombre.trim() })
     });
 
@@ -174,7 +193,9 @@ async function crearCategoria() {
 }
 
 async function cargarConfiguracion() {
-    const res = await fetch("/api/configuracion");
+    const res = await fetch("/api/configuracion", {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
     const config = await res.json();
     document.getElementById("idioma").value = config.idioma || "es";
     document.getElementById("tema").value = config.tema || "light";
@@ -193,7 +214,7 @@ idioma.addEventListener("change", async () => {
     const temaActual = document.getElementById("tema").value;
     const res = await fetch("/api/configuracion", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
             max_precio_producto: 9999.99,
             max_stock_producto: 10000,
@@ -212,7 +233,7 @@ tema.addEventListener("change", async () => {
     
     const res = await fetch("/api/configuracion", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
             max_precio_producto: 9999.99,
             max_stock_producto: 10000,
@@ -222,10 +243,83 @@ tema.addEventListener("change", async () => {
     });
 });
 
+async function cargarUsuarios() {
+    const res = await fetch(usuariosUrl, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    const usuarios = await res.json();
+
+    const ul = document.getElementById("listaUsuarios");
+    ul.innerHTML = "";
+
+    usuarios.forEach(u => {
+        const li = document.createElement("li");
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+        li.style.alignItems = "center";
+        
+        const span = document.createElement("span");
+        span.textContent = `${u.username} (${u.role}) - ${u.activo ? 'Activo' : 'Inactivo'}`;
+        
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "🗑️";
+        deleteBtn.style.marginLeft = "10px";
+        deleteBtn.onclick = () => eliminarUsuario(u.id);
+        
+        li.appendChild(span);
+        li.appendChild(deleteBtn);
+        ul.appendChild(li);
+    });
+}
+
+async function crearUsuario() {
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+    const role = document.getElementById("role").value;
+
+    const res = await fetch(usuariosUrl, {
+        method: "POST",
+        headers: { 
+            "Content-Type": "application/json",
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ username, password, role })
+    });
+
+    if (res.ok) {
+        document.getElementById("username").value = "";
+        document.getElementById("password").value = "";
+        cargarUsuarios();
+    } else {
+        alert("Error al crear usuario");
+    }
+}
+
+async function eliminarUsuario(id) {
+    if (!confirm("Eliminar usuario?")) return;
+    
+    const res = await fetch(`${usuariosUrl}/${id}`, {
+        method: "DELETE",
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    
+    if (res.ok) {
+        cargarUsuarios();
+    }
+}
+
 cargarCategorias();
 cargarProductos();
 cargarConfiguracion();
+cargarUsuarios();
 </script>
-
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+});
+</script>
 </body>
 </html>

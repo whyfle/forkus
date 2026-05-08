@@ -279,6 +279,15 @@ function volver() {
     window.location.href = "/";
 }
 
+window.addEventListener('DOMContentLoaded', () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+        window.location.href = '/login';
+    }
+    cargarCategorias();
+    cargarProductos();
+});
+
 cargarCategorias();
 cargarProductos();
 </script>

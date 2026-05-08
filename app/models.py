@@ -8,6 +8,9 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy import String
+from passlib.context import CryptContext
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class Producto(Base):
     __tablename__ = "productos"
@@ -97,3 +100,13 @@ class Configuracion(Base):
     max_stock_producto = Column(Integer, default=10000)
     idioma = Column(String, default="es")
     tema = Column(String, default="light")
+
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    role = Column(String, default="user")  # admin, user, etc.
+    activo = Column(Boolean, default=True)
